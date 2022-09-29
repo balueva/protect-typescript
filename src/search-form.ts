@@ -1,4 +1,5 @@
 import { renderBlock } from './lib.js'
+import { ISearchFormData, IPlace } from './interfaces'
 
 export function renderSearchFormBlock() {
 
@@ -16,10 +17,12 @@ export function renderSearchFormBlock() {
   mDate.setDate(0);
   const maxDate = mDate.toLocaleDateString('en-CA');
 
+
+
   renderBlock(
     'search-form-block',
     `
-    <form>
+    <form id="frmSearch">
       <fieldset class="search-filedset">
         <div class="row">
           <div>
@@ -46,11 +49,53 @@ export function renderSearchFormBlock() {
             <input id="max-price" type="text" value="" name="price" class="max-price" />
           </div>
           <div>
-            <div><button>Найти</button></div>
+            <div><button type="submit">Найти</button></div>
           </div>
         </div>
       </fieldset>
     </form>
     `
-  )
+  );
+
+  const frmSearch = document.getElementById('frmSearch');
+
+  frmSearch.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const inpCity = frmSearch.querySelector('#city') as HTMLInputElement;
+    const inpCheckInDate = frmSearch.querySelector('#check-in-date') as HTMLInputElement;
+    const inpCheckOutDate = frmSearch.querySelector('#check-out-date') as HTMLInputElement;
+    const inpMaxPrice = frmSearch.querySelector('#max-price') as HTMLInputElement;
+
+    const searchFormData: ISearchFormData = {
+      city: inpCity.value,
+      checkInDate: new Date(inpCheckInDate.value),
+      checkOutDate: new Date(inpCheckOutDate.value),
+      maxPrice: inpMaxPrice.value === '' ? null : + inpMaxPrice.value
+    };
+
+    search(searchFormData, searchCallback);
+  });
 }
+
+
+interface ISearchCallBack {
+  (error?: Error, places?: IPlace[]): void
+}
+
+const searchCallback: ISearchCallBack = (error, places) => {
+  console.log('searchCallback', error, places);
+}
+
+export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
+  console.log('function search searchFormData = ', data);
+
+  const a = Boolean(Math.random() < 0.5);
+  if (a)
+    searchCallback(Error('error'));
+  else {
+    const places: IPlace[] = [];
+    searchCallback(places);
+  }
+}
+

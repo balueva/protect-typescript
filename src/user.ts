@@ -1,8 +1,9 @@
 import { renderBlock } from './lib.js'
+import { IUser } from './interfaces'
 
-export function renderUserBlock(userName: string, avatar: string, favoriteItemsAmount: number) {
-  const favoritesCaption = favoriteItemsAmount > 0 ? favoriteItemsAmount : 'ничего нет'
-  const hasFavoriteItems = favoriteItemsAmount > 0;
+export function renderUserBlock(userName: string, avatar: string, favoriteItemsAmount?: number): void {
+
+  const favoritesCaption: number | string = Boolean(favoriteItemsAmount) ? favoriteItemsAmount : 'ничего нет'
 
   renderBlock(
     'user-block',
@@ -12,7 +13,7 @@ export function renderUserBlock(userName: string, avatar: string, favoriteItemsA
       <div class="info">
           <p class="name">${userName}</p>
           <p class="fav">
-            <i class="heart-icon${hasFavoriteItems ? ' active' : ''}"></i>${favoritesCaption}
+            <i class="heart-icon${Boolean(favoriteItemsAmount) ? ' active' : ''}"></i>${favoritesCaption}
           </p>
       </div>
     </div>
@@ -20,4 +21,31 @@ export function renderUserBlock(userName: string, avatar: string, favoriteItemsA
   )
 }
 
-// Wade Warren
+
+export function getUserData(): IUser | null {
+  const lsItem: string = localStorage.getItem('user');
+
+  if (lsItem)
+    try {
+      const user: unknown = JSON.parse(lsItem);
+      if (typeof user === 'object' && 'userName' in user && 'avatarUrl' in user)
+        return { userName: user['userName'], avatarUrl: user['avatarUrl'] };
+    }
+    catch {
+    }
+  return null;
+}
+
+export function getFavoritesAmount(): number {
+  const amount: unknown = localStorage.getItem('favoritesAmount');
+  if (amount && !isNaN(Number(amount)))
+    return +amount;
+  else
+    return 0;
+}
+
+// для тестов
+export function setLocalStorage(): void {
+  localStorage.setItem('user', '{"userName":"Masha", "avatarUrl":"cat.png"}');
+  localStorage.setItem('favoritesAmount', '5');
+}
