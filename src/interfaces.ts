@@ -11,5 +11,21 @@ export interface ISearchFormData {
 }
 
 export interface IPlace {
+    id: number,
+    image: string,
+    name: string,
+    description: string,
+    remoteness: number,
+    bookedDates: number[],
+    price: number
+}
 
+export interface IMessage {
+    text: string,
+    type: string
+}
+
+export interface IAction {
+    name: string,
+    handler: () => void
 }
