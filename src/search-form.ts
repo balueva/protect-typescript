@@ -1,5 +1,9 @@
-import { renderBlock } from './lib.js'
-import { ISearchFormData, IPlace } from './interfaces'
+import { renderBlock, renderToast } from './lib.js'
+import { ISearchFormData, IPlace } from './interfaces.js'
+import { apiSearch } from './api.js';
+import { renderEmptyOrErrorSearchBlock, renderSearchResultsBlock } from './search-results.js';
+
+let timeoutSearch: number = 0;
 
 export function renderSearchFormBlock() {
 
@@ -80,22 +84,57 @@ export function renderSearchFormBlock() {
 
 
 interface ISearchCallBack {
-  (error?: Error, places?: IPlace[]): void
+  (data: Error | IPlace[] | null): void
 }
 
-const searchCallback: ISearchCallBack = (error, places) => {
-  console.log('searchCallback', error, places);
+const searchCallback: ISearchCallBack = (data) => {
+  console.log('searchCallback', data);
 }
 
 export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
   console.log('function search searchFormData = ', data);
 
-  const a = Boolean(Math.random() < 0.5);
-  if (a)
-    searchCallback(Error('error'));
-  else {
-    const places: IPlace[] = [];
-    searchCallback(places);
-  }
+  apiSearch(data).then((result: IPlace[]) => {
+    clearTimeoutSearch();
+
+    console.log('apiSearch ok', result);
+    if (result.length === 0)
+      renderEmptyOrErrorSearchBlock('По Вашему запросу ничего не найдено');
+    else {
+      renderSearchResultsBlock(result);
+      timeoutSearch = setTimeout(() => {
+        // вывод сообщения
+        renderToast(
+          { text: 'Данные поиска устарели, необходимо их обновить!', type: 'error' },
+          { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+        );
+        // делаем кнопки недоступными
+        const searchResults = document.getElementById('search-results-block');
+        const lstButtons = searchResults.querySelectorAll('button');
+        lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
+      }, 300000)
+    }
+  }).catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'))
 }
 
+export function clearTimeoutSearch(): void {
+  if (timeoutSearch > 0) {
+    clearTimeout(timeoutSearch);
+    timeoutSearch = 0;
+  }
+}
+/* lesson 02
+export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
+  console.log('function search searchFormData = ', data);
+
+  setTimeout(() => {
+    const a = Boolean(Math.random() < 0.5);
+    if (a)
+      searchCallback(Error('error'));
+    else {
+      const places: IPlace[] = [];
+      searchCallback(places);
+    }
+  }, 1000);
+}
+*/

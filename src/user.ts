@@ -1,9 +1,14 @@
 import { renderBlock } from './lib.js'
-import { IUser } from './interfaces'
+import { IUser } from './interfaces.js'
+import { FavoritePlace } from './types.js';
+
+function getFavoriteCaption(favoriteItemsAmount: number | null): number | string {
+  return Boolean(favoriteItemsAmount) ? favoriteItemsAmount : 'ничего нет';
+};
 
 export function renderUserBlock(userName: string, avatar: string, favoriteItemsAmount?: number): void {
 
-  const favoritesCaption: number | string = Boolean(favoriteItemsAmount) ? favoriteItemsAmount : 'ничего нет'
+  const favoritesCaption: number | string = getFavoriteCaption(favoriteItemsAmount);
 
   renderBlock(
     'user-block',
@@ -21,6 +26,15 @@ export function renderUserBlock(userName: string, avatar: string, favoriteItemsA
   )
 }
 
+export function updateUserFavoriteAmount(): void {
+  const amount = getFavoritesAmount()
+  const favoritesCaption: number | string = getFavoriteCaption(amount);
+
+  const userBlock = document.getElementById('user-block');
+  const fav = userBlock.querySelector('.fav') as HTMLElement;
+
+  fav.innerHTML = `<i class="heart-icon${Boolean(amount) ? ' active' : ''}"></i>${favoritesCaption}`
+};
 
 export function getUserData(): IUser | null {
   const lsItem: string = localStorage.getItem('user');
@@ -42,6 +56,39 @@ export function getFavoritesAmount(): number {
     return +amount;
   else
     return 0;
+}
+
+export function getFavoritesData(): FavoritePlace[] | null {
+  const lsFavoriteItems: string = localStorage.getItem('favoriteItems');
+
+  if (lsFavoriteItems)
+    try {
+      const favoriteItems: unknown = JSON.parse(lsFavoriteItems);
+      if (Array.isArray(favoriteItems)) {
+        const result = [];
+        favoriteItems.forEach(item => {
+          if (typeof item === 'object' && 'id' in item && 'name' in item && 'image' in item)
+            result.push({ id: item['id'], name: item['name'], image: item['image'] });
+          else
+            return null;
+        });
+        return result;
+      }
+    }
+    catch {
+    }
+  return null;
+};
+
+export function setFavoritesData(data: FavoritePlace[] | null): void {
+  if (data) {
+    localStorage.setItem('favoriteItems', JSON.stringify(data));
+    localStorage.setItem('favoritesAmount', JSON.stringify(data.length));
+  }
+  else {
+    localStorage.removeItem('favoriteItems');
+    localStorage.removeItem('favoritesAmount');
+  }
 }
 
 // для тестов
