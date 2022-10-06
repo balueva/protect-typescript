@@ -5,6 +5,7 @@ import { FavoritePlace } from './types.js';
 import { apiBook } from './api.js';
 import { renderToast } from './lib.js';
 import { clearTimeoutSearch } from './search-form.js';
+import { FlatRentSdk } from './flat-rent-sdk.js';
 
 export function renderSearchStubBlock() {
   renderBlock(
@@ -48,7 +49,7 @@ export function renderSearchResultsBlock(places: IPlace[]) {
             <p>${place.name}</p>
             <p class="price">${place.price}&#8381;</p>
           </div>
-          <div class="result-info--map"><i class="map-icon"></i>${place.remoteness}км от вас</div>
+          <div class="result-info--map ${place.remoteness === 0 ? 'map-hidden' : ''}"><i class="map-icon"></i>${place.remoteness}км от вас</div>
           <div class="result-info--descr">${place.description}</div>
           <div class="result-info--footer">
             <div>
@@ -104,33 +105,59 @@ export function renderSearchResultsBlock(places: IPlace[]) {
   lstButtons.forEach(item => item.addEventListener('click', event => {
     if (event.target instanceof Element) {
       console.log('button click');
-      const id = +event.target.getAttribute('data-id');
+      const id = event.target.getAttribute('data-id');
 
       const inpCheckInDate = document.getElementById('check-in-date') as HTMLInputElement;
       const inpCheckOutDate = document.getElementById('check-out-date') as HTMLInputElement;
 
       clearTimeoutSearch();
 
-      apiBook(id, new Date(inpCheckInDate.value), new Date(inpCheckOutDate.value))
+      // сначала надо определить, какому сервису приналежит квартира, потом бронировать
+      const flatRentSdk = new FlatRentSdk();
+      flatRentSdk.get(id)
         .then(result => {
-          console.log('apiBook then');
-          console.log(result);
-          renderToast(
-            { text: 'Бронирование успешно', type: 'success' },
-            { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-          )
+          if (result) // то квартира стороннего api
+            flatRentSdk.book(id, new Date(inpCheckInDate.value), new Date(inpCheckOutDate.value))
+              .then(result => {
+                //console.log('apiBook then');
+                //console.log(result);
+                renderToast(
+                  { text: 'Бронирование успешно', type: 'success' },
+                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+                )
+              })
+              .catch(error => {
+                //console.log('apiBook catch');
+                //console.log(error);
+                renderToast(
+                  { text: error, type: 'error' },
+                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+                )
+              });
+          else
+            apiBook(+id, new Date(inpCheckInDate.value), new Date(inpCheckOutDate.value))
+              .then(result => {
+                //console.log('apiBook then');
+                //console.log(result);
+                renderToast(
+                  { text: 'Бронирование успешно', type: 'success' },
+                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+                )
+              })
+              .catch(error => {
+                //console.log('apiBook catch');
+                //console.log(error);
+                renderToast(
+                  { text: error, type: 'error' },
+                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+                )
+              });
         })
-        .catch(error => {
-          console.log('apiBook catch');
-          console.log(error);
-          renderToast(
-            { text: error, type: 'error' },
-            { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-          )
-        });
+        .catch(error => console.log(error));
     }
   }));
 }
+
 
 function toggleFavoriteItem(place: FavoritePlace): boolean {
   console.log('toggleFavoriteItem', place);

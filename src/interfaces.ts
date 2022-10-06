@@ -1,3 +1,5 @@
+import { Provider } from './enums.js';
+
 export interface IUser {
     userName: string,
     avatarUrl: string
@@ -8,10 +10,11 @@ export interface ISearchFormData {
     checkInDate: Date,
     checkOutDate: Date,
     maxPrice: number | null
+    providers: Provider[]
 }
 
 export interface IPlace {
-    id: number,
+    id: number | string,
     image: string,
     name: string,
     description: string,

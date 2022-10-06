@@ -2,6 +2,8 @@ import { renderBlock, renderToast } from './lib.js'
 import { ISearchFormData, IPlace } from './interfaces.js'
 import { apiSearch } from './api.js';
 import { renderEmptyOrErrorSearchBlock, renderSearchResultsBlock } from './search-results.js';
+import { Provider } from './enums.js';
+import { FlatRentSdk, IFlat } from './flat-rent-sdk.js'
 
 let timeoutSearch: number = 0;
 
@@ -34,10 +36,10 @@ export function renderSearchFormBlock() {
             <input id="city" type="text" disabled value="Санкт-Петербург" />
             <input type="hidden" disabled value="59.9386,30.3141" />
           </div>
-          <!--<div class="providers">
-            <label><input type="checkbox" name="provider" value="homy" checked /> Homy</label>
-            <label><input type="checkbox" name="provider" value="flat-rent" checked /> FlatRent</label>
-          </div>--!>
+          <div class="providers">
+            <label><input id="homy" type="checkbox" name="provider" value="homy" checked /> Homy</label>
+            <label><input id="flatRent" type="checkbox" name="provider" value="flat-rent" checked /> FlatRent</label>
+          </div>
         </div>
         <div class="row">
           <div>
@@ -71,17 +73,34 @@ export function renderSearchFormBlock() {
     const inpCheckOutDate = frmSearch.querySelector('#check-out-date') as HTMLInputElement;
     const inpMaxPrice = frmSearch.querySelector('#max-price') as HTMLInputElement;
 
+    const checkHomy = frmSearch.querySelector('#homy') as HTMLInputElement;
+    const checkFlatRent = frmSearch.querySelector('#flatRent') as HTMLInputElement;
+
+    if (!checkHomy.checked && !checkFlatRent.checked) {
+      renderToast(
+        { text: 'Не выбран поставщик данных!', type: 'error' },
+        { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+      );
+      return;
+    };
+
+    const providers: Provider[] = [];
+    if (checkHomy.checked)
+      providers.push(Provider.Homy);
+    if (checkFlatRent.checked)
+      providers.push(Provider.FlatRent);
+
     const searchFormData: ISearchFormData = {
       city: inpCity.value,
       checkInDate: new Date(inpCheckInDate.value),
       checkOutDate: new Date(inpCheckOutDate.value),
-      maxPrice: inpMaxPrice.value === '' ? null : + inpMaxPrice.value
+      maxPrice: inpMaxPrice.value === '' ? null : + inpMaxPrice.value,
+      providers: providers
     };
 
     search(searchFormData, searchCallback);
   });
 }
-
 
 interface ISearchCallBack {
   (data: Error | IPlace[] | null): void
@@ -92,30 +111,56 @@ const searchCallback: ISearchCallBack = (data) => {
 }
 
 export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
+  clearTimeoutSearch();
+
   console.log('function search searchFormData = ', data);
 
-  apiSearch(data).then((result: IPlace[]) => {
-    clearTimeoutSearch();
+  if (data.providers[0] === Provider.Homy)
+    apiSearch(data).then((placeResult: IPlace[]) => {
+      if (data.providers.length > 1) {
+        const flatRentSdk = new FlatRentSdk();
 
-    console.log('apiSearch ok', result);
-    if (result.length === 0)
-      renderEmptyOrErrorSearchBlock('По Вашему запросу ничего не найдено');
-    else {
-      renderSearchResultsBlock(result);
-      timeoutSearch = setTimeout(() => {
-        // вывод сообщения
-        renderToast(
-          { text: 'Данные поиска устарели, необходимо их обновить!', type: 'error' },
-          { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-        );
-        // делаем кнопки недоступными
-        const searchResults = document.getElementById('search-results-block');
-        const lstButtons = searchResults.querySelectorAll('button');
-        lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
-      }, 300000)
-    }
-  }).catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'))
+        flatRentSdk.search({ city: data.city, checkInDate: data.checkInDate, checkOutDate: data.checkOutDate, priceLimit: data.maxPrice })
+          .then(flatResult => analyzeSearchResults(placeResult, flatResult))
+          .catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'));
+      }
+      else
+        analyzeSearchResults(placeResult, []);
+    }).catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'));
+  else {
+    const flatRentSdk = new FlatRentSdk();
+
+    flatRentSdk.search({ city: data.city, checkInDate: data.checkInDate, checkOutDate: data.checkOutDate, priceLimit: data.maxPrice })
+      .then(flatResult => analyzeSearchResults([], flatResult))
+      .catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'));
+  }
 }
+
+export function analyzeSearchResults(place: IPlace[], flat: IFlat[]) {
+  const result: IPlace[] = [...place];
+
+  flat.forEach(item => result.push({
+    id: item.id, image: item.photos[0], name: item.title,
+    description: item.details, remoteness: 0, bookedDates: [], price: item.totalPrice
+  }));
+
+  if (result.length === 0)
+    renderEmptyOrErrorSearchBlock('По Вашему запросу ничего не найдено');
+  else {
+    renderSearchResultsBlock(result);
+    timeoutSearch = setTimeout(() => {
+      // вывод сообщения
+      renderToast(
+        { text: 'Данные поиска устарели, необходимо их обновить!', type: 'error' },
+        { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+      );
+      // делаем кнопки недоступными
+      const searchResults = document.getElementById('search-results-block');
+      const lstButtons = searchResults.querySelectorAll('button');
+      lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
+    }, 300000);
+  }
+};
 
 export function clearTimeoutSearch(): void {
   if (timeoutSearch > 0) {
