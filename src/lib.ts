@@ -1,11 +1,13 @@
-export function renderBlock(elementId: string, html: string) {
+import { IAction, IMessage } from './interfaces.js';
+
+export function renderBlock(elementId: string, html: string): void {
   const element = document.getElementById(elementId)
   if (element)
     element.innerHTML = html
 }
 
-/*
-export function renderToast(message, action) {
+
+export function renderToast(message: IMessage, action: IAction): void {
   let messageText = ''
 
   if (message != null) {
@@ -28,8 +30,8 @@ export function renderToast(message, action) {
       if (action != null && action.handler != null) {
         action.handler()
       }
-      renderToast(null)
+      renderToast(null, null)
     }
   }
 }
-*/
+
