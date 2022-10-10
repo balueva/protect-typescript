@@ -1,5 +1,10 @@
-import { renderBlock } from './lib.js'
-import { ISearchFormData, IPlace } from './interfaces'
+import { renderBlock, renderToast } from './lib.js'
+import { ISearchFormData, IPlace } from './interfaces.js'
+import { renderEmptyOrErrorSearchBlock, renderSearchResultsBlock } from './search-results.js';
+import { Provider } from './types.js';
+import { AllProviders } from './allProviders.js';
+
+let timeoutSearch: number = 0;
 
 export function renderSearchFormBlock() {
 
@@ -30,10 +35,10 @@ export function renderSearchFormBlock() {
             <input id="city" type="text" disabled value="Санкт-Петербург" />
             <input type="hidden" disabled value="59.9386,30.3141" />
           </div>
-          <!--<div class="providers">
-            <label><input type="checkbox" name="provider" value="homy" checked /> Homy</label>
-            <label><input type="checkbox" name="provider" value="flat-rent" checked /> FlatRent</label>
-          </div>--!>
+          <div class="providers">
+            <label><input id="homy" type="checkbox" name="provider" value="homy" checked /> Homy</label>
+            <label><input id="flatRent" type="checkbox" name="provider" value="flat-rent" checked /> FlatRent</label>
+          </div>
         </div>
         <div class="row">
           <div>
@@ -67,6 +72,17 @@ export function renderSearchFormBlock() {
     const inpCheckOutDate = frmSearch.querySelector('#check-out-date') as HTMLInputElement;
     const inpMaxPrice = frmSearch.querySelector('#max-price') as HTMLInputElement;
 
+    const checkHomy = frmSearch.querySelector('#homy') as HTMLInputElement;
+    const checkFlatRent = frmSearch.querySelector('#flatRent') as HTMLInputElement;
+
+    if (!checkHomy.checked && !checkFlatRent.checked) {
+      renderToast(
+        { text: 'Не выбран поставщик данных!', type: 'error' },
+        { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+      );
+      return;
+    };
+
     const searchFormData: ISearchFormData = {
       city: inpCity.value,
       checkInDate: new Date(inpCheckInDate.value),
@@ -74,28 +90,74 @@ export function renderSearchFormBlock() {
       maxPrice: inpMaxPrice.value === '' ? null : + inpMaxPrice.value
     };
 
-    search(searchFormData, searchCallback);
+    const providers: Provider[] = [];
+    if (checkHomy.checked)
+      providers.push('Homy');
+    if (checkFlatRent.checked)
+      providers.push('FlatRent');
+
+    search(searchFormData, providers);
   });
 }
 
 
-interface ISearchCallBack {
-  (error?: Error, places?: IPlace[]): void
-}
+export function search(data: ISearchFormData, providers: Provider[]) {
+  clearTimeoutSearch();
 
-const searchCallback: ISearchCallBack = (error, places) => {
-  console.log('searchCallback', error, places);
-}
-
-export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
   console.log('function search searchFormData = ', data);
 
-  const a = Boolean(Math.random() < 0.5);
-  if (a)
-    searchCallback(Error('error'));
+  //const allProviders = new AllProviders(providers);
+  AllProviders.search(providers, data).then(result => {
+    if (result.length === 0)
+      renderEmptyOrErrorSearchBlock('По Вашему запросу ничего не найдено');
+    else {
+      renderSearchResultsBlock(result);
+      timeoutSearch = setTimeout(() => {
+        // вывод сообщения
+        renderToast(
+          { text: 'Данные поиска устарели, необходимо их обновить!', type: 'error' },
+          { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+        );
+        // делаем кнопки недоступными
+        const searchResults = document.getElementById('search-results-block');
+        const lstButtons = searchResults.querySelectorAll('button');
+        lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
+      }, 300000);
+    }
+  })
+}
+
+/*
+export function analyzeSearchResults(place: IPlace[], flat: IFlat[]) {
+  const result: IPlace[] = [...place];
+
+  flat.forEach(item => result.push({
+    id: item.id, image: item.photos[0], name: item.title,
+    description: item.details, remoteness: 0, bookedDates: [], price: item.totalPrice
+  }));
+
+  if (result.length === 0)
+    renderEmptyOrErrorSearchBlock('По Вашему запросу ничего не найдено');
   else {
-    const places: IPlace[] = [];
-    searchCallback(places);
+    renderSearchResultsBlock(result);
+    timeoutSearch = setTimeout(() => {
+      // вывод сообщения
+      renderToast(
+        { text: 'Данные поиска устарели, необходимо их обновить!', type: 'error' },
+        { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+      );
+      // делаем кнопки недоступными
+      const searchResults = document.getElementById('search-results-block');
+      const lstButtons = searchResults.querySelectorAll('button');
+      lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
+    }, 300000);
+  }
+};
+*/
+export function clearTimeoutSearch(): void {
+  if (timeoutSearch > 0) {
+    clearTimeout(timeoutSearch);
+    timeoutSearch = 0;
   }
 }
 
