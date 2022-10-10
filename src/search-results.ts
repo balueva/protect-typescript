@@ -1,11 +1,10 @@
 import { renderBlock } from './lib.js'
 import { IPlace } from './interfaces.js';
 import { getFavoritesData, setFavoritesData, updateUserFavoriteAmount } from './user.js';
-import { FavoritePlace } from './types.js';
-import { apiBook } from './api.js';
+import { FavoritePlace, SearchOrder } from './types.js';
 import { renderToast } from './lib.js';
 import { clearTimeoutSearch } from './search-form.js';
-import { FlatRentSdk } from './flat-rent-sdk.js';
+import { AllProviders } from './allProviders.js';
 
 export function renderSearchStubBlock() {
   renderBlock(
@@ -32,34 +31,45 @@ export function renderEmptyOrErrorSearchBlock(reasonMessage: string) {
 }
 
 export function renderSearchResultsBlock(places: IPlace[]) {
-  // чтение избранного из локального хранилица
-  const favorites = getFavoritesData();
-  console.log('favorites', favorites)
-  // формирование списка поиска с отобращением стилистики избранного
-  let ul = '';
-  places.forEach(place => ul += `
-    <li class="result">
-      <div class="result-container">
-        <div class="result-img-container">
-          <div class="favorites ${favorites && favorites.find(item => item.id === place.id) ? 'active' : ''}" data-id="${place.id}"></div>
-          <img class="result-img" src="${place.image}" alt="${place.name}">
-        </div>	
-        <div class="result-info">
-          <div class="result-info--header">
-            <p>${place.name}</p>
-            <p class="price">${place.price}&#8381;</p>
-          </div>
-          <div class="result-info--map ${place.remoteness === 0 ? 'map-hidden' : ''}"><i class="map-icon"></i>${place.remoteness}км от вас</div>
-          <div class="result-info--descr">${place.description}</div>
-          <div class="result-info--footer">
-            <div>
-              <button data-id="${place.id}">Забронировать</button>
-            </div>
+
+  function getListStr(places: IPlace[]): string {
+    // формирование списка поиска с отобращением стилистики избранного
+    let ul = '';
+    places.forEach(place => ul += `
+  <li class="result">
+    <div class="result-container">
+      <div class="result-img-container">
+        <div class="favorites ${favorites && favorites.find(item => item.id === place.id) ? 'active' : ''}" data-id="${place.id}"></div>
+        <img class="result-img" src="${place.image}" alt="${place.name}">
+      </div>	
+      <div class="result-info">
+        <div class="result-info--header">
+          <p>${place.name}</p>
+          <p class="price">${place.price}&#8381;</p>
+        </div>
+        <div class="result-info--map ${place.remoteness === 0 ? 'map-hidden' : ''}"><i class="map-icon"></i>${place.remoteness}км от вас</div>
+        <div class="result-info--descr">${place.description}</div>
+        <div class="result-info--footer">
+          <div>
+            <button data-id="${place.id}">Забронировать</button>
           </div>
         </div>
       </div>
-    </li>
-  `);
+    </div>
+  </li>
+`);
+
+    return ul;
+  };
+
+
+  // чтение избранного из локального хранилица
+  const favorites = getFavoritesData();
+  console.log('favorites', favorites)
+
+  places.sort((a, b) => a.price - b.price); // сортировка по умолчанию
+
+  const ul = getListStr(places);
 
   renderBlock(
     'search-results-block',
@@ -68,14 +78,14 @@ export function renderSearchResultsBlock(places: IPlace[]) {
         <p>Результаты поиска</p>
         <div class="search-results-filter">
             <span><i class="icon icon-filter"></i> Сортировать:</span>
-            <select>
-                <option selected="">Сначала дешёвые</option>
-                <option selected="">Сначала дорогие</option>
-                <option>Сначала ближе</option>
+            <select id="selectOptions">
+                <option value="priceAsc" selected>Сначала дешёвые</option>
+                <option value="priceDesc">Сначала дорогие</option>
+                <option value="distanceAsc">Сначала ближе</option>
             </select>
         </div>
     </div>
-    <ul class="results-list">
+    <ul class="results-list" id="results-list">
       ${ul}
     </ul>
     `
@@ -101,6 +111,32 @@ export function renderSearchResultsBlock(places: IPlace[]) {
     }
   }));
 
+  const selectOptions = document.getElementById('selectOptions');
+  selectOptions.addEventListener('change', (event) => {
+    const el = event.target as HTMLInputElement;
+
+    // новая сортировка
+    switch (el.value) {
+      case 'priceAsc': {
+        places.sort((a, b) => a.price - b.price)
+        break;
+      }
+      case 'priceDesc': {
+        places.sort((a, b) => b.price - a.price)
+        break
+      };
+      case 'distanceAsc': {
+        places.sort((a, b) => a.remoteness - b.remoteness)
+        break
+      };
+    }
+
+    // подмена блока результаток поиска
+    const ul = getListStr(places);
+    renderBlock('results-list', ul);
+  })
+
+
   const lstButtons = searchResults.querySelectorAll('button');
   lstButtons.forEach(item => item.addEventListener('click', event => {
     if (event.target instanceof Element) {
@@ -112,48 +148,25 @@ export function renderSearchResultsBlock(places: IPlace[]) {
 
       clearTimeoutSearch();
 
-      // сначала надо определить, какому сервису приналежит квартира, потом бронировать
-      const flatRentSdk = new FlatRentSdk();
-      flatRentSdk.get(id)
+      AllProviders.book(id, new Date(inpCheckInDate.value), new Date(inpCheckOutDate.value))
         .then(result => {
-          if (result) // то квартира стороннего api
-            flatRentSdk.book(id, new Date(inpCheckInDate.value), new Date(inpCheckOutDate.value))
-              .then(result => {
-                //console.log('apiBook then');
-                //console.log(result);
-                renderToast(
-                  { text: 'Бронирование успешно', type: 'success' },
-                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-                )
-              })
-              .catch(error => {
-                //console.log('apiBook catch');
-                //console.log(error);
-                renderToast(
-                  { text: error, type: 'error' },
-                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-                )
-              });
-          else
-            apiBook(+id, new Date(inpCheckInDate.value), new Date(inpCheckOutDate.value))
-              .then(result => {
-                //console.log('apiBook then');
-                //console.log(result);
-                renderToast(
-                  { text: 'Бронирование успешно', type: 'success' },
-                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-                )
-              })
-              .catch(error => {
-                //console.log('apiBook catch');
-                //console.log(error);
-                renderToast(
-                  { text: error, type: 'error' },
-                  { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
-                )
-              });
+          console.log('book then');
+          console.log(result);
+          renderToast(
+            { text: 'Бронирование успешно', type: 'success' },
+            { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+          )
         })
-        .catch(error => console.log(error));
+        .catch(error => {
+          //console.log('apiBook catch');
+          //console.log(error);
+          renderToast(
+            { text: error, type: 'error' },
+            { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+          )
+        });
+
+
     }
   }));
 }

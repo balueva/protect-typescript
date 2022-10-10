@@ -1,9 +1,8 @@
 import { renderBlock, renderToast } from './lib.js'
 import { ISearchFormData, IPlace } from './interfaces.js'
-import { apiSearch } from './api.js';
 import { renderEmptyOrErrorSearchBlock, renderSearchResultsBlock } from './search-results.js';
-import { Provider } from './enums.js';
-import { FlatRentSdk, IFlat } from './flat-rent-sdk.js'
+import { Provider } from './types.js';
+import { AllProviders } from './allProviders.js';
 
 let timeoutSearch: number = 0;
 
@@ -84,58 +83,51 @@ export function renderSearchFormBlock() {
       return;
     };
 
-    const providers: Provider[] = [];
-    if (checkHomy.checked)
-      providers.push(Provider.Homy);
-    if (checkFlatRent.checked)
-      providers.push(Provider.FlatRent);
-
     const searchFormData: ISearchFormData = {
       city: inpCity.value,
       checkInDate: new Date(inpCheckInDate.value),
       checkOutDate: new Date(inpCheckOutDate.value),
-      maxPrice: inpMaxPrice.value === '' ? null : + inpMaxPrice.value,
-      providers: providers
+      maxPrice: inpMaxPrice.value === '' ? null : + inpMaxPrice.value
     };
 
-    search(searchFormData, searchCallback);
+    const providers: Provider[] = [];
+    if (checkHomy.checked)
+      providers.push('Homy');
+    if (checkFlatRent.checked)
+      providers.push('FlatRent');
+
+    search(searchFormData, providers);
   });
 }
 
-interface ISearchCallBack {
-  (data: Error | IPlace[] | null): void
-}
 
-const searchCallback: ISearchCallBack = (data) => {
-  console.log('searchCallback', data);
-}
-
-export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
+export function search(data: ISearchFormData, providers: Provider[]) {
   clearTimeoutSearch();
 
   console.log('function search searchFormData = ', data);
 
-  if (data.providers[0] === Provider.Homy)
-    apiSearch(data).then((placeResult: IPlace[]) => {
-      if (data.providers.length > 1) {
-        const flatRentSdk = new FlatRentSdk();
-
-        flatRentSdk.search({ city: data.city, checkInDate: data.checkInDate, checkOutDate: data.checkOutDate, priceLimit: data.maxPrice })
-          .then(flatResult => analyzeSearchResults(placeResult, flatResult))
-          .catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'));
-      }
-      else
-        analyzeSearchResults(placeResult, []);
-    }).catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'));
-  else {
-    const flatRentSdk = new FlatRentSdk();
-
-    flatRentSdk.search({ city: data.city, checkInDate: data.checkInDate, checkOutDate: data.checkOutDate, priceLimit: data.maxPrice })
-      .then(flatResult => analyzeSearchResults([], flatResult))
-      .catch(error => renderEmptyOrErrorSearchBlock('Ошибка выполнения запроса'));
-  }
+  //const allProviders = new AllProviders(providers);
+  AllProviders.search(providers, data).then(result => {
+    if (result.length === 0)
+      renderEmptyOrErrorSearchBlock('По Вашему запросу ничего не найдено');
+    else {
+      renderSearchResultsBlock(result);
+      timeoutSearch = setTimeout(() => {
+        // вывод сообщения
+        renderToast(
+          { text: 'Данные поиска устарели, необходимо их обновить!', type: 'error' },
+          { name: 'Закрыть', handler: () => { console.log('Уведомление закрыто') } }
+        );
+        // делаем кнопки недоступными
+        const searchResults = document.getElementById('search-results-block');
+        const lstButtons = searchResults.querySelectorAll('button');
+        lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
+      }, 300000);
+    }
+  })
 }
 
+/*
 export function analyzeSearchResults(place: IPlace[], flat: IFlat[]) {
   const result: IPlace[] = [...place];
 
@@ -161,25 +153,11 @@ export function analyzeSearchResults(place: IPlace[], flat: IFlat[]) {
     }, 300000);
   }
 };
-
+*/
 export function clearTimeoutSearch(): void {
   if (timeoutSearch > 0) {
     clearTimeout(timeoutSearch);
     timeoutSearch = 0;
   }
 }
-/* lesson 02
-export function search(data: ISearchFormData, searchCallback: ISearchCallBack) {
-  console.log('function search searchFormData = ', data);
 
-  setTimeout(() => {
-    const a = Boolean(Math.random() < 0.5);
-    if (a)
-      searchCallback(Error('error'));
-    else {
-      const places: IPlace[] = [];
-      searchCallback(places);
-    }
-  }, 1000);
-}
-*/
