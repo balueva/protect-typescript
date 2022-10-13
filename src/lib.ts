@@ -7,7 +7,7 @@ export function renderBlock(elementId: string, html: string): void {
 }
 
 
-export function renderToast(message: IMessage, action: IAction): void {
+export function renderToast(message: IMessage | null, action: IAction | null): void {
   let messageText = ''
 
   if (message != null) {

@@ -1,5 +1,5 @@
 import { renderBlock, renderToast } from './lib.js'
-import { ISearchFormData, IPlace } from './interfaces.js'
+import { ISearchFormData } from './interfaces.js'
 import { renderEmptyOrErrorSearchBlock, renderSearchResultsBlock } from './search-results.js';
 import { Provider } from './types.js';
 import { AllProviders } from './allProviders.js';
@@ -63,6 +63,8 @@ export function renderSearchFormBlock() {
   );
 
   const frmSearch = document.getElementById('frmSearch');
+  if (!frmSearch)
+    return;
 
   frmSearch.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -120,8 +122,8 @@ export function search(data: ISearchFormData, providers: Provider[]) {
         );
         // делаем кнопки недоступными
         const searchResults = document.getElementById('search-results-block');
-        const lstButtons = searchResults.querySelectorAll('button');
-        lstButtons.forEach(item => item.setAttribute('disabled', 'true'))
+        const lstButtons = searchResults?.querySelectorAll('button');
+        lstButtons?.forEach(item => item.setAttribute('disabled', 'true'))
       }, 300000);
     }
   })

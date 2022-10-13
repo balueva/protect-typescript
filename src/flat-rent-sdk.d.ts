@@ -12,7 +12,7 @@ export interface IParams {
     city: string,
     checkInDate: Date,
     checkOutDate: Date,
-    priceLimit: number
+    priceLimit: number | null
 }
 
 export class FlatRentSdk {

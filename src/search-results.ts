@@ -1,7 +1,7 @@
 import { renderBlock } from './lib.js'
 import { IPlace } from './interfaces.js';
 import { getFavoritesData, setFavoritesData, updateUserFavoriteAmount } from './user.js';
-import { FavoritePlace, SearchOrder } from './types.js';
+import { FavoritePlace } from './types.js';
 import { renderToast } from './lib.js';
 import { clearTimeoutSearch } from './search-form.js';
 import { AllProviders } from './allProviders.js';
@@ -95,13 +95,19 @@ export function renderSearchResultsBlock(places: IPlace[]) {
 
   // нажатие на иконку избранного
   const searchResults = document.getElementById('search-results-block');
-  const lstFavorites = searchResults.querySelectorAll('.favorites');
-  lstFavorites.forEach(item => item.addEventListener('click', event => {
+  const lstFavorites = searchResults?.querySelectorAll('.favorites');
+  lstFavorites?.forEach(item => item.addEventListener('click', event => {
     console.log('click', places);
 
     if (event.target instanceof Element) {
-      const id = +event.target.getAttribute('data-id');
-      const place = places.find(item => item.id === id);
+      const id = event.target.getAttribute('data-id');
+      if (!id)
+        return;
+
+      const place = places.find(item => item.id == id);
+      if (!place)
+        return;
+
       const operation = toggleFavoriteItem({ id: place.id, name: place.name, image: place.image });
       if (operation)
         event.target.classList.remove('active');
@@ -112,7 +118,7 @@ export function renderSearchResultsBlock(places: IPlace[]) {
   }));
 
   const selectOptions = document.getElementById('selectOptions');
-  selectOptions.addEventListener('change', (event) => {
+  selectOptions?.addEventListener('change', (event) => {
     const el = event.target as HTMLInputElement;
 
     // новая сортировка
@@ -137,11 +143,13 @@ export function renderSearchResultsBlock(places: IPlace[]) {
   })
 
 
-  const lstButtons = searchResults.querySelectorAll('button');
-  lstButtons.forEach(item => item.addEventListener('click', event => {
+  const lstButtons = searchResults?.querySelectorAll('button');
+  lstButtons?.forEach(item => item.addEventListener('click', event => {
     if (event.target instanceof Element) {
       console.log('button click');
       const id = event.target.getAttribute('data-id');
+      if (!id)
+        return;
 
       const inpCheckInDate = document.getElementById('check-in-date') as HTMLInputElement;
       const inpCheckOutDate = document.getElementById('check-out-date') as HTMLInputElement;
